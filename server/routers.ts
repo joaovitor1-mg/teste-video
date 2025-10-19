@@ -18,7 +18,9 @@ import {
   createCut,
   getAnalysisCuts,
   updateCutStatus,
+  getCut,
 } from "./db";
+import { transcribeVideo, analyzeTranscription, generateVideocuts } from "./videoProcessor";
 
 export const appRouter = router({
   system: systemRouter,
@@ -88,6 +90,11 @@ export const appRouter = router({
           status: "processing",
         });
 
+        // Start transcription in background
+        transcribeVideo(input.videoId, video.filename, transcriptionId).catch((error) => {
+          console.error("Transcription error:", error);
+        });
+
         return transcription;
       }),
 
@@ -108,6 +115,11 @@ export const appRouter = router({
           videoId: input.videoId,
           transcriptionId: transcription.id,
           status: "processing",
+        });
+
+        // Start analysis in background
+        analyzeTranscription(input.videoId, transcription.id, analysisId, transcription.srtContent).catch((error) => {
+          console.error("Analysis error:", error);
         });
 
         return analysis;
@@ -145,6 +157,11 @@ export const appRouter = router({
         const analysis = await getVideoAnalysis(input.videoId);
         if (!analysis) throw new Error("Analysis not found");
 
+        // Start cut generation in background
+        generateVideocuts(input.videoId, video.filename, analysis.id).catch((error) => {
+          console.error("Cut generation error:", error);
+        });
+
         // Get cuts from analysis
         const cutsList = await getAnalysisCuts(analysis.id);
         return cutsList;
@@ -160,9 +177,6 @@ export const appRouter = router({
       }),
   }),
 });
-
-// Import getCut from db
-import { getCut } from "./db";
 
 export type AppRouter = typeof appRouter;
 
