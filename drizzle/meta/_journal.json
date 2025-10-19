@@ -15,6 +15,13 @@
       "when": 1760911889810,
       "tag": "0001_lying_onslaught",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1760912973620,
+      "tag": "0002_amazing_magma",
+      "breakpoints": true
     }
   ]
 }

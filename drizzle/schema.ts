@@ -29,6 +29,9 @@ export const videos = mysqlTable("videos", {
   fileSize: int("fileSize").notNull(), // em bytes
   duration: int("duration"), // em segundos
   status: mysqlEnum("status", ["pending", "transcribing", "analyzing", "ready", "error"]).default("pending").notNull(),
+  transcriptionProgress: int("transcriptionProgress").default(0), // 0-100
+  analysisProgress: int("analysisProgress").default(0), // 0-100
+  cuttingProgress: int("cuttingProgress").default(0), // 0-100
   errorMessage: text("errorMessage"),
   createdAt: timestamp("createdAt").defaultNow(),
   updatedAt: timestamp("updatedAt").defaultNow(),
@@ -44,6 +47,7 @@ export const transcriptions = mysqlTable("transcriptions", {
   id: varchar("id", { length: 64 }).primaryKey(),
   videoId: varchar("videoId", { length: 64 }).notNull(),
   srtContent: text("srtContent").notNull(), // Conteúdo do arquivo SRT
+  progress: int("progress").default(0), // 0-100
   status: mysqlEnum("status", ["pending", "processing", "completed", "error"]).default("pending").notNull(),
   errorMessage: text("errorMessage"),
   createdAt: timestamp("createdAt").defaultNow(),
@@ -62,6 +66,7 @@ export const analyses = mysqlTable("analyses", {
   transcriptionId: varchar("transcriptionId", { length: 64 }).notNull(),
   cutsData: text("cutsData"), // JSON com os cortes identificados
   totalCuts: int("totalCuts").default(0),
+  progress: int("progress").default(0), // 0-100
   status: mysqlEnum("status", ["pending", "processing", "completed", "error"]).default("pending").notNull(),
   errorMessage: text("errorMessage"),
   createdAt: timestamp("createdAt").defaultNow(),
@@ -83,6 +88,7 @@ export const cuts = mysqlTable("cuts", {
   endTime: int("endTime").notNull(), // em segundos
   textPreview: text("textPreview"),
   outputPath: varchar("outputPath", { length: 255 }), // Caminho do arquivo de saída
+  progress: int("progress").default(0), // 0-100
   status: mysqlEnum("status", ["pending", "processing", "completed", "error"]).default("pending").notNull(),
   errorMessage: text("errorMessage"),
   createdAt: timestamp("createdAt").defaultNow(),

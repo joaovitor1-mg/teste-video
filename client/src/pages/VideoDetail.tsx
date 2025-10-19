@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProgressBar } from "@/components/ProgressBar";
 import { trpc } from "@/lib/trpc";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Loader2, Mic, BarChart3, Scissors, CheckCircle, AlertCircle } from "lucide-react";
@@ -13,35 +14,58 @@ export default function VideoDetail({ params }: VideoDetailProps) {
   const { user, isAuthenticated } = useAuth();
   const videoId = params.videoId;
   const [activeTab, setActiveTab] = useState<"transcription" | "analysis" | "cuts">("transcription");
+  const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
-  const { data: video, isLoading: videoLoading } = trpc.video.get.useQuery(
+  const { data: video, isLoading: videoLoading, refetch: refetchVideo } = trpc.video.get.useQuery(
     { videoId },
     { enabled: isAuthenticated }
   );
 
-  const { data: analysis, isLoading: analysisLoading } = trpc.video.getAnalysis.useQuery(
+  const { data: analysis, isLoading: analysisLoading, refetch: refetchAnalysis } = trpc.video.getAnalysis.useQuery(
     { videoId },
     { enabled: isAuthenticated }
   );
 
   const transcribeMutation = trpc.video.transcribe.useMutation({
     onSuccess: () => {
-      // Refetch video data
-      trpc.useUtils().video.get.invalidate({ videoId });
+      refetchVideo();
+      // Start polling for progress updates
+      const interval = setInterval(() => {
+        refetchVideo();
+      }, 2000);
+      setRefreshInterval(interval);
     },
   });
 
   const analyzeMutation = trpc.video.analyze.useMutation({
     onSuccess: () => {
-      trpc.useUtils().video.getAnalysis.invalidate({ videoId });
+      refetchAnalysis();
+      const interval = setInterval(() => {
+        refetchAnalysis();
+      }, 2000);
+      setRefreshInterval(interval);
     },
   });
 
   const generateCutsMutation = trpc.video.generateCuts.useMutation({
     onSuccess: () => {
-      trpc.useUtils().video.getAnalysis.invalidate({ videoId });
+      refetchAnalysis();
+      const interval = setInterval(() => {
+        refetchAnalysis();
+      }, 2000);
+      setRefreshInterval(interval);
     },
   });
+
+  // Clear interval when component unmounts or when processing is done
+  useEffect(() => {
+    if (video && (video.status === "ready" || video.status === "error")) {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        setRefreshInterval(null);
+      }
+    }
+  }, [video?.status, refreshInterval]);
 
   if (videoLoading) {
     return (
@@ -95,9 +119,9 @@ export default function VideoDetail({ params }: VideoDetailProps) {
               <CardHeader>
                 <CardTitle>Processo</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
                 {/* Step 1: Transcribe */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                       video.status === "transcribing" || video.status === "analyzing" || video.status === "ready"
@@ -112,6 +136,15 @@ export default function VideoDetail({ params }: VideoDetailProps) {
                     </div>
                     <span className="font-semibold">Transcrever Vídeo</span>
                   </div>
+                  
+                  {video.status === "transcribing" && (
+                    <ProgressBar
+                      progress={video.transcriptionProgress || 0}
+                      status="processing"
+                      showPercentage
+                    />
+                  )}
+                  
                   <Button
                     className="w-full"
                     onClick={() => transcribeMutation.mutate({ videoId })}
@@ -132,7 +165,7 @@ export default function VideoDetail({ params }: VideoDetailProps) {
                 </div>
 
                 {/* Step 2: Analyze */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                       video.status === "analyzing" || video.status === "ready"
@@ -147,6 +180,15 @@ export default function VideoDetail({ params }: VideoDetailProps) {
                     </div>
                     <span className="font-semibold">Analisar</span>
                   </div>
+                  
+                  {video.status === "analyzing" && (
+                    <ProgressBar
+                      progress={video.analysisProgress || 0}
+                      status="processing"
+                      showPercentage
+                    />
+                  )}
+                  
                   <Button
                     className="w-full"
                     onClick={() => analyzeMutation.mutate({ videoId })}
@@ -168,7 +210,7 @@ export default function VideoDetail({ params }: VideoDetailProps) {
                 </div>
 
                 {/* Step 3: Generate Cuts */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                       video.status === "ready"
@@ -183,6 +225,15 @@ export default function VideoDetail({ params }: VideoDetailProps) {
                     </div>
                     <span className="font-semibold">Gerar Cortes</span>
                   </div>
+                  
+                  {video.status === "ready" && analysis && (
+                    <ProgressBar
+                      progress={video.cuttingProgress || 0}
+                      status={video.cuttingProgress === 100 ? "completed" : "processing"}
+                      showPercentage
+                    />
+                  )}
+                  
                   <Button
                     className="w-full"
                     onClick={() => generateCutsMutation.mutate({ videoId })}
@@ -202,6 +253,15 @@ export default function VideoDetail({ params }: VideoDetailProps) {
                     )}
                   </Button>
                 </div>
+
+                {/* Error Message */}
+                {video.status === "error" && video.errorMessage && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-sm text-red-700">
+                      <strong>Erro:</strong> {video.errorMessage}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -253,9 +313,17 @@ export default function VideoDetail({ params }: VideoDetailProps) {
                         Clique em "Transcrever" para iniciar a transcrição do vídeo.
                       </p>
                     ) : video.status === "transcribing" ? (
-                      <div className="flex items-center gap-2 text-blue-600">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Transcrevendo o vídeo...
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Transcrevendo o vídeo...
+                        </div>
+                        <ProgressBar
+                          progress={video.transcriptionProgress || 0}
+                          status="processing"
+                          label="Progresso da Transcrição"
+                          showPercentage
+                        />
                       </div>
                     ) : (
                       <div className="bg-slate-50 p-4 rounded-lg max-h-96 overflow-y-auto">
@@ -272,6 +340,19 @@ export default function VideoDetail({ params }: VideoDetailProps) {
                       <p className="text-slate-600">
                         Conclua a transcrição para iniciar a análise.
                       </p>
+                    ) : video.status === "analyzing" ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Analisando transcrição...
+                        </div>
+                        <ProgressBar
+                          progress={video.analysisProgress || 0}
+                          status="processing"
+                          label="Progresso da Análise"
+                          showPercentage
+                        />
+                      </div>
                     ) : analysisLoading ? (
                       <div className="flex items-center gap-2 text-blue-600">
                         <Loader2 className="w-4 h-4 animate-spin" />
@@ -315,6 +396,19 @@ export default function VideoDetail({ params }: VideoDetailProps) {
                       <p className="text-slate-600">
                         Conclua a análise para gerar os vídeos cortados.
                       </p>
+                    ) : video.cuttingProgress && video.cuttingProgress > 0 && video.cuttingProgress < 100 ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Gerando cortes...
+                        </div>
+                        <ProgressBar
+                          progress={video.cuttingProgress}
+                          status="processing"
+                          label="Progresso da Geração de Cortes"
+                          showPercentage
+                        />
+                      </div>
                     ) : analysis && analysis.cuts && analysis.cuts.length > 0 ? (
                       <div className="space-y-2">
                         {analysis.cuts.map((cut, index) => (
@@ -334,6 +428,15 @@ export default function VideoDetail({ params }: VideoDetailProps) {
                                 {cut.status}
                               </div>
                             </div>
+                            {cut.progress !== undefined && cut.progress !== null && cut.progress > 0 && (
+                              <div className="mt-2">
+                                <ProgressBar
+                                  progress={cut.progress || 0}
+                                  status={cut.status as any}
+                                  showPercentage
+                                />
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

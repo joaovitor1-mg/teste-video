@@ -120,6 +120,18 @@ export async function updateVideoStatus(videoId: string, status: Video["status"]
   await db.update(videos).set(updateData).where(eq(videos.id, videoId));
 }
 
+export async function updateVideoProgress(videoId: string, transcriptionProgress?: number, analysisProgress?: number, cuttingProgress?: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  
+  const updateData: Record<string, unknown> = { updatedAt: new Date() };
+  if (transcriptionProgress !== undefined) updateData.transcriptionProgress = transcriptionProgress;
+  if (analysisProgress !== undefined) updateData.analysisProgress = analysisProgress;
+  if (cuttingProgress !== undefined) updateData.cuttingProgress = cuttingProgress;
+  
+  await db.update(videos).set(updateData).where(eq(videos.id, videoId));
+}
+
 // ===== Transcription Queries =====
 export async function createTranscription(transcription: InsertTranscription): Promise<Transcription> {
   const db = await getDb();
@@ -146,12 +158,13 @@ export async function getVideoTranscription(videoId: string): Promise<Transcript
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function updateTranscriptionStatus(transcriptionId: string, status: Transcription["status"], errorMessage?: string): Promise<void> {
+export async function updateTranscriptionStatus(transcriptionId: string, status: Transcription["status"], errorMessage?: string, progress?: number): Promise<void> {
   const db = await getDb();
   if (!db) return;
   
   const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
   if (errorMessage) updateData.errorMessage = errorMessage;
+  if (progress !== undefined) updateData.progress = progress;
   
   await db.update(transcriptions).set(updateData).where(eq(transcriptions.id, transcriptionId));
 }
@@ -182,7 +195,7 @@ export async function getVideoAnalysis(videoId: string): Promise<Analysis | unde
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function updateAnalysisStatus(analysisId: string, status: Analysis["status"], errorMessage?: string, cutsData?: string, totalCuts?: number): Promise<void> {
+export async function updateAnalysisStatus(analysisId: string, status: Analysis["status"], errorMessage?: string, cutsData?: string, totalCuts?: number, progress?: number): Promise<void> {
   const db = await getDb();
   if (!db) return;
   
@@ -190,6 +203,7 @@ export async function updateAnalysisStatus(analysisId: string, status: Analysis[
   if (errorMessage) updateData.errorMessage = errorMessage;
   if (cutsData) updateData.cutsData = cutsData;
   if (totalCuts !== undefined) updateData.totalCuts = totalCuts;
+  if (progress !== undefined) updateData.progress = progress;
   
   await db.update(analyses).set(updateData).where(eq(analyses.id, analysisId));
 }
@@ -219,13 +233,14 @@ export async function getAnalysisCuts(analysisId: string): Promise<Cut[]> {
   return db.select().from(cuts).where(eq(cuts.analysisId, analysisId));
 }
 
-export async function updateCutStatus(cutId: string, status: Cut["status"], errorMessage?: string, outputPath?: string): Promise<void> {
+export async function updateCutStatus(cutId: string, status: Cut["status"], errorMessage?: string, outputPath?: string, progress?: number): Promise<void> {
   const db = await getDb();
   if (!db) return;
   
   const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
   if (errorMessage) updateData.errorMessage = errorMessage;
   if (outputPath) updateData.outputPath = outputPath;
+  if (progress !== undefined) updateData.progress = progress;
   
   await db.update(cuts).set(updateData).where(eq(cuts.id, cutId));
 }
