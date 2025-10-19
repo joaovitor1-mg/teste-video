@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, videos, transcriptions, analyses, cuts, Video, Transcription, Analysis, Cut, InsertVideo, InsertTranscription, InsertAnalysis, InsertCut } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -85,4 +85,148 @@ export async function getUser(id: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ===== Video Queries =====
+export async function createVideo(video: InsertVideo): Promise<Video> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.insert(videos).values(video);
+  const result = await db.select().from(videos).where(eq(videos.id, video.id)).limit(1);
+  return result[0];
+}
+
+export async function getVideo(id: string): Promise<Video | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(videos).where(eq(videos.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getUserVideos(userId: string): Promise<Video[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(videos).where(eq(videos.userId, userId));
+}
+
+export async function updateVideoStatus(videoId: string, status: Video["status"], errorMessage?: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  
+  const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
+  if (errorMessage) updateData.errorMessage = errorMessage;
+  
+  await db.update(videos).set(updateData).where(eq(videos.id, videoId));
+}
+
+// ===== Transcription Queries =====
+export async function createTranscription(transcription: InsertTranscription): Promise<Transcription> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.insert(transcriptions).values(transcription);
+  const result = await db.select().from(transcriptions).where(eq(transcriptions.id, transcription.id)).limit(1);
+  return result[0];
+}
+
+export async function getTranscription(id: string): Promise<Transcription | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(transcriptions).where(eq(transcriptions.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getVideoTranscription(videoId: string): Promise<Transcription | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(transcriptions).where(eq(transcriptions.videoId, videoId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function updateTranscriptionStatus(transcriptionId: string, status: Transcription["status"], errorMessage?: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  
+  const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
+  if (errorMessage) updateData.errorMessage = errorMessage;
+  
+  await db.update(transcriptions).set(updateData).where(eq(transcriptions.id, transcriptionId));
+}
+
+// ===== Analysis Queries =====
+export async function createAnalysis(analysis: InsertAnalysis): Promise<Analysis> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.insert(analyses).values(analysis);
+  const result = await db.select().from(analyses).where(eq(analyses.id, analysis.id)).limit(1);
+  return result[0];
+}
+
+export async function getAnalysis(id: string): Promise<Analysis | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(analyses).where(eq(analyses.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getVideoAnalysis(videoId: string): Promise<Analysis | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(analyses).where(eq(analyses.videoId, videoId)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function updateAnalysisStatus(analysisId: string, status: Analysis["status"], errorMessage?: string, cutsData?: string, totalCuts?: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  
+  const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
+  if (errorMessage) updateData.errorMessage = errorMessage;
+  if (cutsData) updateData.cutsData = cutsData;
+  if (totalCuts !== undefined) updateData.totalCuts = totalCuts;
+  
+  await db.update(analyses).set(updateData).where(eq(analyses.id, analysisId));
+}
+
+// ===== Cut Queries =====
+export async function createCut(cut: InsertCut): Promise<Cut> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.insert(cuts).values(cut);
+  const result = await db.select().from(cuts).where(eq(cuts.id, cut.id)).limit(1);
+  return result[0];
+}
+
+export async function getCut(id: string): Promise<Cut | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(cuts).where(eq(cuts.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getAnalysisCuts(analysisId: string): Promise<Cut[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(cuts).where(eq(cuts.analysisId, analysisId));
+}
+
+export async function updateCutStatus(cutId: string, status: Cut["status"], errorMessage?: string, outputPath?: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  
+  const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
+  if (errorMessage) updateData.errorMessage = errorMessage;
+  if (outputPath) updateData.outputPath = outputPath;
+  
+  await db.update(cuts).set(updateData).where(eq(cuts.id, cutId));
+}
+
